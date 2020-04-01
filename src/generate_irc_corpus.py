@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# Author: Sebastien Delecraz
 
 import os
 import random
