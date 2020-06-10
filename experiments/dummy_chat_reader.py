@@ -11,7 +11,7 @@ from allennlp.data.dataset_readers import TextClassificationJsonReader
 
 from allennlp.data.fields import Field
 from allennlp.data.fields import LabelField
-from allennlp.data.fields import TextField, ListField, ArrayField
+from allennlp.data.fields import TextField, ListField, ArrayField, SequenceLabelField
 from allennlp.data.instance import Instance
 from allennlp.data.token_indexers import TokenIndexer, SingleIdTokenIndexer
 from allennlp.data.tokenizers import Token
@@ -130,10 +130,10 @@ class ChatReader(DatasetReader):
         # roughly similar to what happens in TextClassifierJson datareader
         lines_field = ListField([TextField(tokenized_line,self._token_indexers) for tokenized_line in inst_tokens])
         # labels are head index for each turn; root is "root"
-        target = ListField([LabelField(label=head) for idx,head in inst_deps])  # or simply LabelField
+        target = SequenceLabelField([head for idx,head in inst_deps],lines_field)  # or simply LabelField
         #instance = Instance({'lines': lines_field, 'labels': target})
         # mock label for testing of model as classification of a chat ; force label = 0
-        instance = Instance({'lines': lines_field, 'label': LabelField(label="0")})
+        instance = Instance({'lines': lines_field, 'label': target})
         return instance
 
 ###### VERY IMPORTANT: the name fields have to be found in the forward method of the models
