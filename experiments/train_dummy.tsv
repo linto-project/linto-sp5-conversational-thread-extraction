@@ -1,7 +1,8 @@
-root	this is a turn in a chat
-0	another one
-0	but this is different
+2	this is a turn in a chat
+2	another one
+2	but this is different
 
-root	another chat starts
-0	is it different ?
-1	well a little bit
+3	another chat starts
+3	is it different ?
+3	well a little bit
+3	but we need a different number of turns.
