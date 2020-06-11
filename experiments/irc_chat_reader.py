@@ -58,8 +58,8 @@ class PassThroughTokenEmbedder(TokenEmbedder):
     def forward(self, tokens: torch.Tensor) -> torch.Tensor:
         return {"tokens":tokens}
 
-@DatasetReader.register("chat_reader")
-class ChatReader(DatasetReader):
+@DatasetReader.register("irc_chat_reader")
+class IRCChatReader(DatasetReader):
     """
     Reads a file for chat problems
     
@@ -196,10 +196,12 @@ if __name__=="__main__":
     token_indexers = {"tokens": SingleIdTokenIndexer()}
     tokenizer_cfg = Params({"word_splitter": {"language": "en"}})
     tokenizer = Tokenizer.from_params(tokenizer_cfg)
-    reader = ChatReader(
+    reader = IRCChatReader(
         tokenizer=tokenizer,
         token_indexers=token_indexers,
         )
     train_instances = reader.read("../../../data/irc-disentanglement/data/train")
     #vocab = Vocabulary.from_instances([x["sentence"] for x in train_instances])
     vocab = Vocabulary.from_instances(train_instances)
+
+
