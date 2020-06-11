@@ -11,7 +11,7 @@ from allennlp.data.dataset_readers import TextClassificationJsonReader
 
 from allennlp.data.fields import Field
 from allennlp.data.fields import LabelField
-from allennlp.data.fields import TextField, ListField, ArrayField, SequenceLabelField
+from allennlp.data.fields import TextField, ListField, ArrayField, SequenceLabelField, AdjacencyField
 from allennlp.data.instance import Instance
 from allennlp.data.token_indexers import TokenIndexer, SingleIdTokenIndexer
 from allennlp.data.tokenizers import Token
@@ -112,7 +112,7 @@ class ChatReader(DatasetReader):
                     else:
                         inst_tokens.append(self._tokenizer.tokenize(turn))
                     inst_deps.append((idx,head))
-                    idx = idx 
+                    idx = idx + 1
             yield self.text_to_instance(inst_tokens,inst_deps)
     
     @overrides
@@ -129,10 +129,10 @@ class ChatReader(DatasetReader):
         # otherwise prepare for sequence of sequence encoding
         # roughly similar to what happens in TextClassifierJson datareader
         lines_field = ListField([TextField(tokenized_line,self._token_indexers) for tokenized_line in inst_tokens])
-        # labels are head index for each turn; root is "root"
-        target = SequenceLabelField([head for idx,head in inst_deps],lines_field)  # or simply LabelField
-        #instance = Instance({'lines': lines_field, 'labels': target})
-        # mock label for testing of model as classification of a chat ; force label = 0
+        # labels are head index for each turn
+        #target = SequenceLabelField([head for idx,head in inst_deps],lines_field)  # or simply LabelField
+        # labels are pairs of indices of turns
+        target = AdjacencyField([(idx,int(head)) for (idx,head) in inst_deps],lines_field) 
         instance = Instance({'lines': lines_field, 'label': target})
         return instance
 

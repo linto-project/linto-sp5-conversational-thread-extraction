@@ -41,6 +41,7 @@ class HierarchicalChatClassification(Model):
         # encoding chat 
         # mask for chats is now nb of turns; beware weird return type of torch.max (tuple) 
         chat_mask = mask.max(axis=2)[0]
+        # since chat encoder is seq2vec, output is just for one state and shape (batch_size x encoder_output_size) 
         chat_h = self.chat_encoder(turn_h,chat_mask)
         
         
