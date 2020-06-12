@@ -58,8 +58,16 @@ class PassThroughTokenEmbedder(TokenEmbedder):
     def forward(self, tokens: torch.Tensor) -> torch.Tensor:
         return {"tokens":tokens}
 
-@DatasetReader.register("irc_chat_reader")
-class IRCChatReader(DatasetReader):
+
+#######################################
+#### TODO: 
+####  - preprocessing:
+####       - remove sentence markeup (<s> </s>)
+###        - replace user placeholder with sth that wont be split up, like <user> -> #user
+###        - tokenization foireuse -> prendre raw direct ?
+###        - remove server messages ? (==
+@DatasetReader.register("chat_reader")
+class ChatReader(DatasetReader):
     """
     Reads a file for chat problems
     
@@ -81,23 +89,31 @@ class IRCChatReader(DatasetReader):
         max_sequence_length: int = None,
         encode_turns: bool = False,
         lazy: bool = False,
+        raw: bool = False,
+        sample: int = None, # limit nb of instances for testing
+        clip: int = None,  # clip chats to maximal nb of turns
     ) -> None:
+        """
+        raw: takes raw file instead of pre-tokenized files
+        """
         super(ChatReader, self).__init__(lazy)
         self._tokenizer = tokenizer 
         self._max_sequence_length = max_sequence_length
         self._token_indexers = token_indexers
         self.encode_turns = encode_turns
         self.turn_encoder = SentenceTransformer('bert-base-nli-mean-tokens') if encode_turns else None
-        
+        self.raw = raw
+        self.sample = sample
+        self.clip = clip
         
     @overrides
     def _read(self, dir_path: str) -> Iterable[Instance]:
         # if `file_path` is a URL, redirect to the cache
         #file_path = cached_path(file_path)
-
+        clip = self.clip
         files_id = set([".".join(x.split(".")[0:2]) for x in os.listdir(dir_path)])
 
-        for file_id in files_id:
+        for file_id in list(files_id):#[:self.sample]:
             inst_tokens = []
             arcs = []
             idx = 0
@@ -114,14 +130,21 @@ class IRCChatReader(DatasetReader):
                     arcs.append((source, target))
 
             inst_arcs = [(s - first_line, t - first_line) for s, t in arcs]
+            #if clip is not None:
+            #    inst_arcs = [(s,t) for s,t in arcs if (s<clip and t<clip)]
+                
             # print(inst_arcs)
-
-            chat_filepath = os.path.join(dir_path, file_id + ".tok.txt")
+            suffix = ".raw.txt" if self.raw else ".tok.txt"
+            
+            chat_filepath = os.path.join(dir_path, file_id + suffix)
             with open(chat_filepath, "r") as chat_file:
                 logger.info("Reading instances from lines in file at: %s", chat_filepath)
                 for idx, line in enumerate(chat_file):
                     turn = line.strip()
-                    if idx < first_line:
+                    if self.raw:# remove timestamp
+                        if not(turn.startswith("===")):
+                            turn = turn.split("]",1)[1].strip()
+                    if idx < first_line:# or (clip is not None and (idx-first_line)>=clip):
                         continue
                     # print(idx, turn)
                     if self.turn_encoder:
@@ -196,12 +219,10 @@ if __name__=="__main__":
     token_indexers = {"tokens": SingleIdTokenIndexer()}
     tokenizer_cfg = Params({"word_splitter": {"language": "en"}})
     tokenizer = Tokenizer.from_params(tokenizer_cfg)
-    reader = IRCChatReader(
+    reader = ChatReader(
         tokenizer=tokenizer,
         token_indexers=token_indexers,
         )
     train_instances = reader.read("../../../data/irc-disentanglement/data/train")
     #vocab = Vocabulary.from_instances([x["sentence"] for x in train_instances])
     vocab = Vocabulary.from_instances(train_instances)
-
-
