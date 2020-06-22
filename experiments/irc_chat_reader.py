@@ -1,4 +1,3 @@
-import itertools
 import logging
 import os
 import torch
@@ -123,30 +122,33 @@ class ChatReader(DatasetReader):
             with open(annotation_filepath, "r") as annotation_file:
                 logger.info("Reading instances from lines in file at: %s", annotation_filepath)
                 for line in annotation_file:
-                    t, s, _ = line.split()
-                    target, source = map(int, [t, s])
+                    # t, s, _ = line.split()
+                    target, source = map(int, line.split()[0:2])
                     if first_line > min(target, source):
                         first_line = min(target, source)
                     arcs.append((source, target))
 
-            inst_arcs = [(s - first_line, t - first_line) for s, t in arcs]
-            #if clip is not None:
-            #    inst_arcs = [(s,t) for s,t in arcs if (s<clip and t<clip)]
-                
-            # print(inst_arcs)
+            inst_arcs = []
+            for s, t in arcs:
+                s = s - first_line
+                t = t - first_line
+                if s < clip and t < clip:
+                    inst_arcs.append((s, t))
+
             suffix = ".raw.txt" if self.raw else ".tok.txt"
-            
+
             chat_filepath = os.path.join(dir_path, file_id + suffix)
             with open(chat_filepath, "r") as chat_file:
                 logger.info("Reading instances from lines in file at: %s", chat_filepath)
                 for idx, line in enumerate(chat_file):
+                    if clip is not None and (idx - first_line) >= clip:
+                        break
+                    if idx < first_line:# or (clip is not None and (idx-first_line)>=clip):
+                        continue
                     turn = line.strip()
                     if self.raw:# remove timestamp
                         if not(turn.startswith("===")):
                             turn = turn.split("]",1)[1].strip()
-                    if idx < first_line:# or (clip is not None and (idx-first_line)>=clip):
-                        continue
-                    # print(idx, turn)
                     if self.turn_encoder:
                         inst_tokens.append(turn)
                     else:
@@ -222,6 +224,8 @@ if __name__=="__main__":
     reader = ChatReader(
         tokenizer=tokenizer,
         token_indexers=token_indexers,
+        clip=50,
+        raw=True
         )
     train_instances = reader.read("../../../data/irc-disentanglement/data/train")
     #vocab = Vocabulary.from_instances([x["sentence"] for x in train_instances])
