@@ -3,11 +3,8 @@ import os
 import torch
 from typing import Dict, List, Iterable
 import numpy as np
-
-
 from allennlp.data.dataset_readers.dataset_reader import DatasetReader
 # to be checked: reads a text as a list of sentences
-
 from allennlp.data.fields import Field
 from allennlp.data.fields import LabelField
 from allennlp.data.fields import TextField, ListField, ArrayField, SequenceLabelField, AdjacencyField
@@ -18,10 +15,6 @@ from allennlp.data.tokenizers import Tokenizer
 from allennlp.modules.seq2vec_encoders import BertPooler
 from allennlp.modules import TextFieldEmbedder
 from allennlp.modules.token_embedders.token_embedder import TokenEmbedder
-
-
-
-
 from overrides import overrides
 
 logger = logging.getLogger(__name__)
@@ -129,8 +122,12 @@ class ChatReader(DatasetReader):
             for s, t in arcs:
                 s = s - first_line
                 t = t - first_line
-                if s < clip and t < clip:
+                if clip:
+                    if s < clip and t < clip:
+                        inst_arcs.append((s, t))
+                else:
                     inst_arcs.append((s, t))
+
 
             suffix = ".raw.txt" if self.raw else ".tok.txt"
 
