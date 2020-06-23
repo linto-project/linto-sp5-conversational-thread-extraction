@@ -79,7 +79,7 @@ class ChatReader(DatasetReader):
         encode_turns: bool = False,
         lazy: bool = False,
         raw: bool = False,
-        full: bool = False,
+        min_link: int = 1000,
         sample: int = None, # limit nb of instances for testing
         clip: int = None,  # clip chats to maximal nb of turns
     ) -> None:
@@ -95,7 +95,7 @@ class ChatReader(DatasetReader):
         self.raw = raw
         self.sample = sample
         self.clip = clip
-        self.full = full
+        self.min_link = min_link
         
     @overrides
     def _read(self, dir_path: str) -> Iterable[Instance]:
@@ -109,10 +109,10 @@ class ChatReader(DatasetReader):
             arcs = []
             idx = 0
             first_line = 5000
-            if self.full:
-                min_link = 0
-            else:
-                min_link = 900
+            # if self.full:
+            #     min_link = 0
+            # else:
+            #     min_link = 1000
 
             annotation_filepath = os.path.join(dir_path, file_id + ".annotation.txt")
             with open(annotation_filepath, "r") as annotation_file:
@@ -120,7 +120,7 @@ class ChatReader(DatasetReader):
                 for line in annotation_file:
                     # t, s, _ = line.split()
                     target, source = map(int, line.split()[0:2])
-                    if target < min_link or source < min_link:
+                    if target < self.min_link or source < self.min_link:
                         continue
                     if first_line > min(target, source):
                         first_line = min(target, source)
