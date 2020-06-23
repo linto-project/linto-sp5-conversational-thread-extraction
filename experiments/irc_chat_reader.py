@@ -109,10 +109,6 @@ class ChatReader(DatasetReader):
             arcs = []
             idx = 0
             first_line = 5000
-            # if self.full:
-            #     min_link = 0
-            # else:
-            #     min_link = 1000
 
             annotation_filepath = os.path.join(dir_path, file_id + ".annotation.txt")
             with open(annotation_filepath, "r") as annotation_file:
@@ -126,8 +122,8 @@ class ChatReader(DatasetReader):
                         first_line = min(target, source)
                     arcs.append((source, target))
 
-            if clip :
-                first_line = max(first_line, 1000)
+            # if clip :
+            #     first_line = max(first_line, 1000)
 
             inst_arcs = []
             # save = []
