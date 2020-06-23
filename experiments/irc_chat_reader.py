@@ -7,7 +7,6 @@ import numpy as np
 
 from allennlp.data.dataset_readers.dataset_reader import DatasetReader
 # to be checked: reads a text as a list of sentences
-from allennlp.data.dataset_readers import TextClassificationJsonReader
 
 from allennlp.data.fields import Field
 from allennlp.data.fields import LabelField
@@ -21,8 +20,6 @@ from allennlp.modules import TextFieldEmbedder
 from allennlp.modules.token_embedders.token_embedder import TokenEmbedder
 
 
-
-from sentence_transformers import SentenceTransformer
 
 
 from overrides import overrides
