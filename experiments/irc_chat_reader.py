@@ -79,6 +79,7 @@ class ChatReader(DatasetReader):
         encode_turns: bool = False,
         lazy: bool = False,
         raw: bool = False,
+        full: bool = False,
         sample: int = None, # limit nb of instances for testing
         clip: int = None,  # clip chats to maximal nb of turns
     ) -> None:
@@ -94,6 +95,7 @@ class ChatReader(DatasetReader):
         self.raw = raw
         self.sample = sample
         self.clip = clip
+        self.full = full
         
     @overrides
     def _read(self, dir_path: str) -> Iterable[Instance]:
@@ -107,6 +109,10 @@ class ChatReader(DatasetReader):
             arcs = []
             idx = 0
             first_line = 5000
+            if self.full:
+                min_link = 0
+            else:
+                min_link = 900
 
             annotation_filepath = os.path.join(dir_path, file_id + ".annotation.txt")
             with open(annotation_filepath, "r") as annotation_file:
@@ -114,20 +120,33 @@ class ChatReader(DatasetReader):
                 for line in annotation_file:
                     # t, s, _ = line.split()
                     target, source = map(int, line.split()[0:2])
+                    if target < min_link or source < min_link:
+                        continue
                     if first_line > min(target, source):
                         first_line = min(target, source)
                     arcs.append((source, target))
 
+            if clip :
+                first_line = max(first_line, 1000)
+
             inst_arcs = []
+            # save = []
+            # save2 = []
             for s, t in arcs:
                 s = s - first_line
                 t = t - first_line
+                # save.append((s, t, first_line))
+                # save2.append((s, t, clip))
                 if clip:
-                    if s < clip and t < clip:
+                    if s < clip and t < clip and s >= 0 and t >= 0:
                         inst_arcs.append((s, t))
                 else:
                     inst_arcs.append((s, t))
-
+            # if inst_arcs == []:
+            #     print(save)
+            #     print(save2)
+            #     print(annotation_filepath)
+            #     sys.exit(1)
 
             suffix = ".raw.txt" if self.raw else ".tok.txt"
 
