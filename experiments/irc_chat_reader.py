@@ -102,7 +102,10 @@ class ChatReader(DatasetReader):
         # if `file_path` is a URL, redirect to the cache
         #file_path = cached_path(file_path)
         clip = self.clip
-        files_id = set([".".join(x.split(".")[0:2]) for x in os.listdir(dir_path)])
+        files_id = set()
+        for filename in os.listdir(dir_path):
+            file_id = os.path.splitext(os.path.splitext(filename)[0])[0]
+            files_id.add(file_id)
 
         for file_id in list(files_id):#[:self.sample]:
             inst_tokens = []
@@ -237,5 +240,9 @@ if __name__=="__main__":
         raw=True
         )
     train_instances = reader.read("../../../data/irc-disentanglement/data/train")
+    dev_instances = reader.read("../../../data/irc-disentanglement/data/dev")
+    test_instances = reader.read("../../../data/irc-disentanglement/data/test")
     #vocab = Vocabulary.from_instances([x["sentence"] for x in train_instances])
     vocab = Vocabulary.from_instances(train_instances)
+    vocab = Vocabulary.from_instances(dev_instances)
+    vocab = Vocabulary.from_instances(test_instances)
