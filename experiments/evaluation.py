@@ -21,7 +21,7 @@ MAX_DISTANCE = 13
 # Those are the files used by Kummerfald et al 2019 scripts  
 def extractGraphFromTextPairs(file):
     
-    gold_graphs = dict()
+    graphs = dict()
     
     with open(file) as gold_file :
         links = gold_file.readlines()
@@ -33,23 +33,27 @@ def extractGraphFromTextPairs(file):
         e1 = int(link.split(':')[1].split(' ')[0])
         e2 = int(link.split(':')[1].split(' ')[1])
         
-        if file_id not in gold_graphs : 
-            gold = nx.Graph(file_id=file_id)
-            if e1 not in gold:
-                gold.add_node(e1, label=str(e1))
-            if e2 not in gold:
-                gold.add_node(e2, label=str(e2))
-            gold.add_edge(e1, e2)
+        if file_id not in graphs : 
+            graph = nx.DiGraph(file_id=file_id)
+            if e1 not in graph:
+                graph.add_node(e1, label=str(e1))
+            if e2 not in graph:
+                graph.add_node(e2, label=str(e2))
+            graph.add_edge(e1, e2)
             
-            gold_graphs[file_id] = gold
+            graphs[file_id] = graph
         else :
-            if e1 not in gold_graphs[file_id]:
-                gold_graphs[file_id].add_node(e1, label=str(e1))
-            if e2 not in gold_graphs[file_id]:
-                gold_graphs[file_id].add_node(e2, label=str(e2))
-            gold_graphs[file_id].add_edge(e1, e2)
+            if e1 not in graphs[file_id]:
+                graphs[file_id].add_node(e1, label=str(e1))
+            if e2 not in graphs[file_id]:
+                graphs[file_id].add_node(e2, label=str(e2))
+            graphs[file_id].add_edge(e1, e2)
             
-    return gold_graphs
+    # Add self loops
+    for file, graph in graphs.items() :
+        add_self_loops(graph)
+            
+    return graphs
     
     
 ###############################################################################
@@ -75,10 +79,10 @@ def extractGraphs(data):
         e1 = int(row['source'])
         e2 = int(row['target'])
         if row['file_id'] not in pred_graphs:
-            gold = nx.Graph(file_id=row['file_id'])
-            pred = nx.Graph(file_id=row['file_id'])
-            pred_constr = nx.Graph(file_id=row['file_id'])
-            scores_constr = nx.Graph(file_id=row['file_id'])
+            gold = nx.DiGraph(file_id=row['file_id'])
+            pred = nx.DiGraph(file_id=row['file_id'])
+            pred_constr = nx.DiGraph(file_id=row['file_id'])
+            scores_constr = nx.DiGraph(file_id=row['file_id'])
         # We add the nodes, just making sure about self loops
         # gold
             if e1 not in gold:
@@ -140,8 +144,34 @@ def extractGraphs(data):
 #             if satisfiesConstraints(pred_graphs_constraints_scores[row['file_id']], e1, e2):
 #                 pred_graphs_constraints_scores[row['file_id']].add_edge(e1, e2) # The graph was created
 
+
+    # Add self loops
+    for file, graph in gold_graphs.items() :
+        add_self_loops(graph)
+    for file, graph in pred_graphs.items() :
+        add_self_loops(graph)
+    for file, graph in pred_graphs_constraints.items() :
+        add_self_loops(graph)
+    
+
     return gold_graphs, pred_graphs, pred_graphs_constraints              
 #     return gold_graphs, pred_graphs, pred_graphs_constraints, pred_graphs_constraints_scores
+
+
+###########################################################################
+
+def add_self_loops(graph):
+    
+    # firstly add self loops to all isolated nodes
+    for cc in sorted(nx.weakly_connected_components(graph), key=len, reverse=True) :
+        if len(cc) == 1 :
+            node = next(iter(cc)) 
+            graph.add_edge(node, node)
+            
+    # Then add a self loop to all nodes that have an in degree of 0
+    for node in graph.nodes :
+        if graph.in_degree(node) == 0 :
+            graph.add_edge(node, node)
 
 
 ###########################################################################
@@ -151,8 +181,8 @@ def b_cubed_eval(gold_graphs, pred_graphs):
     P, R = 0.0, 0.0
     
     for graph_file, gold in gold_graphs.items():
-        predCCs = sorted(nx.connected_components(pred_graphs[graph_file]), key=len, reverse=True)
-        goldCCs = sorted(nx.connected_components(gold), key=len, reverse=True)
+        predCCs = sorted(nx.weakly_connected_components(pred_graphs[graph_file]), key=len, reverse=True)
+        goldCCs = sorted(nx.weakly_connected_components(gold), key=len, reverse=True)
         
         r, p, f = b_cubed(goldCCs, predCCs)
         
@@ -175,8 +205,8 @@ def phi4(gold_graphs, pred_graphs):
     P, R = 0.0, 0.0
     
     for graph_file, gold in gold_graphs.items():
-        predCCs = sorted(nx.connected_components(pred_graphs[graph_file]), key=len, reverse=True)
-        goldCCs = sorted(nx.connected_components(gold), key=len, reverse=True)
+        predCCs = sorted(nx.weakly_connected_components(pred_graphs[graph_file]), key=len, reverse=True)
+        goldCCs = sorted(nx.weakly_connected_components(gold), key=len, reverse=True)
         
         r, p, f = ceaf_e(goldCCs, predCCs)
         
@@ -198,8 +228,8 @@ def muc_eval(gold_graphs, pred_graphs):
     P, R = 0.0, 0.0
     
     for graph_file, gold in gold_graphs.items():
-        predCCs = sorted(nx.connected_components(pred_graphs[graph_file]), key=len, reverse=True)
-        goldCCs = sorted(nx.connected_components(gold), key=len, reverse=True)
+        predCCs = sorted(nx.weakly_connected_components(pred_graphs[graph_file]), key=len, reverse=True)
+        goldCCs = sorted(nx.weakly_connected_components(gold), key=len, reverse=True)
         
         r, p, f = muc(goldCCs, predCCs)
         
@@ -224,8 +254,8 @@ def purity(gold_graphs, pred_graphs):
     total_overlap = 0
     
     for graph_file, gold in gold_graphs.items():
-        predCCs = sorted(nx.connected_components(pred_graphs[graph_file]), key=len, reverse=True)
-        goldCCs = sorted(nx.connected_components(gold), key=len, reverse=True)
+        predCCs = sorted(nx.weakly_connected_components(pred_graphs[graph_file]), key=len, reverse=True)
+        goldCCs = sorted(nx.weakly_connected_components(gold), key=len, reverse=True)
         
         for predCC in predCCs :
             # find the highsest overlap
@@ -273,7 +303,7 @@ def write_eval_files(graphs, prefix):
         for s, t in g.edges :
             outGraphs.write(f + ":" + str(s) + " " + str(t) + " -\n")
         # the clusters
-        CCs = sorted(nx.connected_components(g), key=len, reverse=True)
+        CCs = sorted(nx.weakly_connected_components(g), key=len, reverse=True)
         for cc in CCs :
             cluster = f +":"
             for node in cc :
@@ -310,48 +340,46 @@ def exctractDataframe(tsv_loc, pred_loc, score_loc):
 
 
 
-
-
-# You can run this script in the following way: 
-
-#################################
-# tsv files:
-tsv_loc = "/path/to/tsv/file.tsv"
-pred_loc = "/path/to/eval_preds.txt"
-score_loc = "/path/to/eval_scores.txt"
- 
-###### Get the data into graphs 
-data = exctractDataframe(tsv_loc, pred_loc, score_loc) 
-gold_graphs, pred_graphs, pred_graphs_constraints = extractGraphs(data)
-#################################
+# # You can run this script in the following way: 
 # 
-# Alternatively output files from the Kummerfeld predictions
-
-# gold_loc = "/path/to/kummerfeld/gold.test.graphs.txt"
-# pred_loc = "/path/to/kummerfeld_output/file.out"
+# #################################
+# # tsv files:
+# tsv_loc = "/path/to/tsv/file.tsv"
+# pred_loc = "/path/to/eval_preds.txt"
+# score_loc = "/path/to/eval_scores.txt"
 #  
-# gold_graphs = extractGraphFromTextPairs(gold_loc)
-# pred_graphs = extractGraphFromTextPairs(pred_loc)
-
-
-
-### Save on the format required by the Kummerfeld et al 2019 scripts
-write_eval_files(gold_graphs, "gold")
-write_eval_files(pred_graphs, "pred")
-
-print("Purity:")
-print(round(purity(gold_graphs, pred_graphs), 4)*100)
-print(round(purity(gold_graphs, pred_graphs_constraints), 4)*100)
-  
-print("MUC:")
-print(muc_eval(gold_graphs, pred_graphs))
-print(muc_eval(gold_graphs, pred_graphs_constraints))
-  
-print("phi4:")
-print(phi4(gold_graphs, pred_graphs))
-print(phi4(gold_graphs, pred_graphs_constraints))
-   
-print("b^3:")
-print(b_cubed_eval(gold_graphs, pred_graphs))
-print(b_cubed_eval(gold_graphs, pred_graphs_constraints))
+# ###### Get the data into graphs 
+# data = exctractDataframe(tsv_loc, pred_loc, score_loc) 
+# gold_graphs, pred_graphs, pred_graphs_constraints = extractGraphs(data)
+# #################################
+# # 
+# # Alternatively output files from the Kummerfeld predictions
+# 
+# # gold_loc = "/path/to/kummerfeld/gold.test.graphs.txt"
+# # pred_loc = "/path/to/kummerfeld_output/file.out"
+# #  
+# # gold_graphs = extractGraphFromTextPairs(gold_loc)
+# # pred_graphs = extractGraphFromTextPairs(pred_loc)
+# 
+# 
+# 
+# ### Save on the format required by the Kummerfeld et al 2019 scripts
+# write_eval_files(gold_graphs, "gold")
+# write_eval_files(pred_graphs, "pred")
+# 
+# print("Purity:")
+# print(round(purity(gold_graphs, pred_graphs), 4)*100)
+# print(round(purity(gold_graphs, pred_graphs_constraints), 4)*100)
+#   
+# print("MUC:")
+# print(muc_eval(gold_graphs, pred_graphs))
+# print(muc_eval(gold_graphs, pred_graphs_constraints))
+#   
+# print("phi4:")
+# print(phi4(gold_graphs, pred_graphs))
+# print(phi4(gold_graphs, pred_graphs_constraints))
+#    
+# print("b^3:")
+# print(b_cubed_eval(gold_graphs, pred_graphs))
+# print(b_cubed_eval(gold_graphs, pred_graphs_constraints))
 
