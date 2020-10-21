@@ -68,12 +68,14 @@ def extractGraphFromTextPairs(file):
 # - one representing the gold annotations 
 # - one representing the predictions
 # -one representing predictions after decoding (cf satisfiesConstraints)
+#
+# In case that the input data contain links with nodes prior to 1000 we do not 
+# keep them
 def extractGraphs(data):
     
     gold_graphs = dict()
     pred_graphs = dict()
     pred_graphs_constraints = dict()
-#     pred_graphs_constraints_scores = dict()
     
     for index, row in data.iterrows():
         e1 = int(row['source'])
@@ -82,9 +84,7 @@ def extractGraphs(data):
             gold = nx.DiGraph(file_id=row['file_id'])
             pred = nx.DiGraph(file_id=row['file_id'])
             pred_constr = nx.DiGraph(file_id=row['file_id'])
-            scores_constr = nx.DiGraph(file_id=row['file_id'])
-        # We add the nodes, just making sure about self loops
-        # gold
+            # We add the nodes
             if e1 not in gold:
                 gold.add_node(e1, label=str(e1))
             if e2 not in gold:
@@ -97,27 +97,30 @@ def extractGraphs(data):
                 pred_constr.add_node(e1, label=str(e1))
             if e2 not in pred_constr:
                 pred_constr.add_node(e2, label=str(e2)) # scores with constraints
-            if e1 not in scores_constr:
-                scores_constr.add_node(e1, label=str(e1))
-            if e2 not in scores_constr:
-                scores_constr.add_node(e2, label=str(e2)) # print(e1, e2, row['label'], row['pred'])
             # add edges
-            # gold
             if int(row['label']) == 1:
                 gold.add_edge(e1, e2) # predicted labels, no constraints
             if int(row['pred']) == 1:
                 pred.add_edge(e1, e2) # predicted labels, with constraints
             if int(row['pred']) == 1 and satisfiesConstraints(pred_constr, e1, e2):
                 pred_constr.add_edge(e1, e2) # scores with constraints; note that our dataframe is sorted (desceding) according to the score for class 1
-            if satisfiesConstraints(scores_constr, e1, e2):
-                scores_constr.add_edge(e1, e2)
+
+            
+            # Remove nodes < 1000
+            if e1 < 1000 : 
+                gold.remove_node(e1)
+                pred.remove_node(e1)
+                pred_constr.remove_node(e1)
+            if e2 < 1000 : 
+                gold.remove_node(e2)
+                pred.remove_node(e2)
+                pred_constr.remove_node(e2)
+            
             gold_graphs[row['file_id']] = gold
             pred_graphs[row['file_id']] = pred
             pred_graphs_constraints[row['file_id']] = pred_constr
-#             pred_graphs_constraints_scores[row['file_id']] = scores_constr
         else:
             # We add the nodes
-            # gold
             if e1 not in gold_graphs[row['file_id']]:
                 gold_graphs[row['file_id']].add_node(e1, label=str(e1))
             if e2 not in gold_graphs[row['file_id']]:
@@ -130,10 +133,6 @@ def extractGraphs(data):
                 pred_graphs_constraints[row['file_id']].add_node(e1, label=str(e1))
             if e2 not in pred_graphs_constraints[row['file_id']]:
                 pred_graphs_constraints[row['file_id']].add_node(e2, label=str(e2)) # scores with constraints
-#             if e1 not in pred_graphs_constraints_scores[row['file_id']]:
-#                 pred_graphs_constraints_scores[row['file_id']].add_node(e1, label=str(e1))
-#             if e2 not in pred_graphs_constraints_scores[row['file_id']]:
-#                 pred_graphs_constraints_scores[row['file_id']].add_node(e2, label=str(e2)) # add edges
             # gold
             if int(row['label']) == 1:
                 gold_graphs[row['file_id']].add_edge(e1, e2) # predicted labels, no constraints
@@ -141,8 +140,16 @@ def extractGraphs(data):
                 pred_graphs[row['file_id']].add_edge(e1, e2) # predicted labels, with constraints
             if int(row['pred']) == 1 and satisfiesConstraints(pred_graphs_constraints[row['file_id']], e1, e2):
                 pred_graphs_constraints[row['file_id']].add_edge(e1, e2) # scores with constraints; note that our dataframe is sorted (desceding) according to the score for class 1
-#             if satisfiesConstraints(pred_graphs_constraints_scores[row['file_id']], e1, e2):
-#                 pred_graphs_constraints_scores[row['file_id']].add_edge(e1, e2) # The graph was created
+            
+            # Remove nodes < 1000
+            if e1 < 1000 : 
+                gold_graphs[row['file_id']].remove_node(e1)
+                pred_graphs[row['file_id']].remove_node(e1)
+                pred_graphs_constraints[row['file_id']].remove_node(e1)
+            if e2 < 1000 : 
+                gold_graphs[row['file_id']].remove_node(e2)
+                pred_graphs[row['file_id']].remove_node(e2)
+                pred_graphs_constraints[row['file_id']].remove_node(e2)
 
 
     # Add self loops
@@ -155,7 +162,6 @@ def extractGraphs(data):
     
 
     return gold_graphs, pred_graphs, pred_graphs_constraints              
-#     return gold_graphs, pred_graphs, pred_graphs_constraints, pred_graphs_constraints_scores
 
 
 ###########################################################################
@@ -272,8 +278,6 @@ def purity(gold_graphs, pred_graphs):
 
 
 def satisfiesConstraints(graph, e1, e2):
-    
-#     print(graph.graph)
     
     # Nodes shouldn't be over the MAX_DEGREE
     for node, degree in graph.degree([e1, e2]) :
