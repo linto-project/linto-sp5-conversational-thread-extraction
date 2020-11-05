@@ -1,9 +1,12 @@
 data/
 
-models/*/data/
+models/*/*/data/
 
 *model.bin
 cached_*
+*graphs.txt
+experiments/run_transformers/runs/
+experiments/runs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
