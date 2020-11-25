@@ -1,6 +1,6 @@
 data/
 
-models/*/*/data/
+
 
 *model.bin
 cached_*
