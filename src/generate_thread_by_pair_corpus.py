@@ -47,8 +47,9 @@ def generate_full_negative_links(links: Set[str],
                                  conv_number: int,
                                  test=False) -> Set[str]:
     neg_links = set()
+    context_size = 10
     for i in range(1000, conv_number):
-        z = min(i+10, conv_number)
+        z = min(i + context_size, conv_number)
         if test:
             z = conv_number
         for j in range(i + 1, z):
