@@ -65,7 +65,8 @@ class ChatReader(DatasetReader):
         sub_sequence: int = None,
         min_link: int = 1000,
         sample: int = None,
-        clip: int = None,  
+        clip: int = None,
+        loop: bool = False,
     ) -> None:
         
         super(ChatReader, self).__init__(lazy)
@@ -77,6 +78,7 @@ class ChatReader(DatasetReader):
         self.clip = clip
         self.min_link = min_link
         self.sub_sequence = sub_sequence
+        self.loop = loop
         
     @overrides
     def _read(self, dir_path: str) -> Iterable[Instance]:
@@ -97,7 +99,8 @@ class ChatReader(DatasetReader):
             arcs = []
             idx = 0
             first_line = 5000
-
+            inst_loops = [0]*2200
+            
             annotation_filepath = os.path.join(dir_path, file_id + ".annotation.txt")
             with open(annotation_filepath, "r") as annotation_file:
                 logger.debug("Reading instances from lines in file at: %s"%annotation_filepath)
@@ -112,10 +115,15 @@ class ChatReader(DatasetReader):
 
             # if clip :
             #     first_line = max(first_line, 1000)
-
-            inst_arcs = []
+            if self.loop:
+                for s, t in arcs:
+                    #print(s, t, len(inst_loops))
+                    if s == t:
+                        inst_loops[s - first_line] = 1
+            #else:
             # save = []
             # save2 = []
+            inst_arcs = []
             for s, t in arcs:
                 s = s - first_line
                 t = t - first_line
@@ -126,11 +134,11 @@ class ChatReader(DatasetReader):
                         inst_arcs.append((s, t))
                 else:
                     inst_arcs.append((s, t))
-            # if inst_arcs == []:
-            #     print(save)
-            #     print(save2)
-            #     print(annotation_filepath)
-            #     sys.exit(1)
+                # if inst_arcs == []:
+                #     print(save)
+                #     print(save2)
+                #     print(annotation_filepath)
+                #     sys.exit(1)
 
             suffix = ".raw.txt" if self.raw else ".tok.txt"
             chat_filepath = os.path.join(dir_path, file_id + suffix)
@@ -165,7 +173,7 @@ class ChatReader(DatasetReader):
                 addressee = get_addressee(turn,user_list=all_speakers)
                 features["addressee"].append(addressee)
             
-            for one_instance in self.text_to_instance(inst_tokens, inst_arcs,
+            for one_instance in self.text_to_instance(inst_tokens, inst_arcs, inst_loops,
                                         sub_sequence = self.sub_sequence,
                                         metadata={"file_source":file_id,
                                                   "first_line":first_line,
@@ -177,9 +185,10 @@ class ChatReader(DatasetReader):
             
             
     def target_short_sequence_instance(
-         self,  # type: ignore
+        self,  # type: ignore
         inst_tokens: Iterable,
         inst_arcs: Iterable,
+        inst_loops: Iterable,
         context_length: int = 15,
         metadata = {"tokens":[]}
     ) -> Instance:
@@ -198,7 +207,17 @@ class ChatReader(DatasetReader):
             seq_field = ListField([TextField(tokenized_line, self._token_indexers) for tokenized_line in context_turns])
             data["tokens"] = context_turns
             data["file_source"] = metadata["file_source"]
+            data["first_line"] = metadata["first_line"]
+            data["token_line"] = metadata["first_line"] + i
             fields["lines"] = seq_field
+            if self.loop:
+                #print(start, i, len(inst_loops), len(inst_tokens))
+                #if len(inst_loops[start:i+1]) < 2:
+                #    print(inst_tokens[start:i+1], inst_loops[start:i+1], inst_loops[i], metadata["file_source"])
+#                 if "2011-11" in metadata["file_source"]:
+#                     print(inst_loops[0:250])
+                label = inst_loops[i]
+                fields["loops"] = LabelField(label, skip_indexing=True)
             try:
                 fields["arcs"] = AdjacencyField(data["arcs"], seq_field)
             except:
@@ -284,11 +303,12 @@ class ChatReader(DatasetReader):
         self,  # type: ignore
         inst_tokens: Iterable,
         inst_arcs: Iterable,
+        inst_loops: Iterable,
         sub_sequence:int = None,
         metadata = {"tokens":[]}
     ) -> Instance:
         if sub_sequence: 
-            return self.target_short_sequence_instance(inst_tokens,inst_arcs,context_length=sub_sequence,metadata=metadata)
+            return self.target_short_sequence_instance(inst_tokens,inst_arcs,inst_loops,context_length=sub_sequence,metadata=metadata)
         else:
             return self.text_to_instance_whole(inst_tokens,inst_arcs,metadata=metadata)
     
@@ -864,12 +884,23 @@ if __name__=="__main__":
     reader = ChatReader(
         tokenizer=tokenizer,
         token_indexers=token_indexers,
-        clip=50,
-        raw=False#True
+        raw=True,
+        sub_sequence=1,
+        loop=True,
         )
-    train_instances = reader.read("../data/train")
+    #train_instances = reader.read("../data/train")
     dev_instances = reader.read("../data/dev")
-    test_instances = reader.read("../data/test")
+    j = 5
+    for i in range(len(dev_instances)):
+        if "2011-11-13_02" in dev_instances[i]["metadata"].metadata["file_source"]:
+            print(i)
+            print(dev_instances[i]["metadata"].metadata)
+            print(dev_instances[i]["lines"][-1])
+            print("label = ", dev_instances[i]["loops"].label)
+            j -= 1
+        if j < 0:
+            break
+    #test_instances = reader.read("../data/test")
     #vocab = Vocabulary.from_instances([x["sentence"] for x in train_instances])
     #vocab = Vocabulary.from_instances(train_instances)
     #vocab = Vocabulary.from_instances(dev_instances)
